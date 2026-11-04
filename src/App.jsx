@@ -1,17 +1,31 @@
 import { useState, useEffect, useRef } from "react";
  
-/* =========================================================================
-   CONFIG — change these when your domain and backend are ready.
-   In a Vite project, swap the strings for import.meta.env.VITE_API_BASE_URL
-   and import.meta.env.VITE_SITE_URL so each environment sets its own.
-   ========================================================================= */
 const CONFIG = {
   brand: "GRDEV",
-  siteUrl: "", // e.g. "https://grdev.com" once you buy the domain
+  siteUrl: "https://www.grdev-us.com",
   apiBaseUrl: "", // e.g. "https://api.grdev.com" — empty = mock mode
-  contactEmail: "hello@example.com", // replace with your domain email
+  contactEmail: "info@grdev-us.com",
   location: "Houston area, Texas",
-  phone: "", // e.g. "(713) 555-0123" — shown in the nav and footer when set
+  phone: "832-557-4731",
+  formEndpoint: "https://api.web3forms.com/submit",
+  formAccessKey: "00fe7c49-0e6d-45c2-b59a-dd737fe0ffea",
+};
+
+async function sendToInbox(payload) {
+  if (!CONFIG.formAccessKey) throw new Error("No form access key configured");
+  const res = await fetch(CONFIG.formEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      access_key: CONFIG.formAccessKey,
+      subject: `New GRDEV lead: ${payload.form}`,
+      from_name: "GRDEV website",
+      ...payload,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) throw new Error(data.message || `Form service returned ${res.status}`);
+  return { ok: true };
 };
  
 /* =========================================================================
@@ -29,20 +43,20 @@ async function request(path, options = {}) {
  
 const mock = (data, ms = 600) => new Promise((r) => setTimeout(() => r(data), ms));
 const live = () => Boolean(CONFIG.apiBaseUrl);
- 
+
 const api = {
   contact: {
     submit: (payload) =>
       live()
         ? request("/contact", { method: "POST", body: JSON.stringify(payload) })
-        : mock({ ok: true }),
+        : sendToInbox({ form: "Start a project", ...payload }),
   },
   analytics: {
     // Hook point for GA4 / GTM / your own events table.
     track: (event, props = {}) => {
       if (window.dataLayer) window.dataLayer.push({ event, ...props });
       if (live())
-        request("/events", { method: "POST", body: JSON.stringify({ event, ...props }) }).catch(() => {});
+        request("/events", { method: "POST", body: JSON.stringify({ event, ...props }) }).catch(() => { });
     },
   },
   assistant: {
@@ -51,16 +65,16 @@ const api = {
       live()
         ? request("/assistant", { method: "POST", body: JSON.stringify({ message, history }) })
         : mock({
-            reply:
-              "The assistant isn't connected yet. Use the contact form below and William will reply directly.",
-          }),
+          reply:
+            "The assistant isn't connected yet. Use the contact form below and William will reply directly.",
+        }),
   },
   audit: {
     // Free audit requests. Later: save to Postgres, run PageSpeed/Lighthouse, email the report.
     request: (payload) =>
       live()
         ? request("/audit", { method: "POST", body: JSON.stringify(payload) })
-        : mock({ ok: true }),
+        : sendToInbox({ form: "Free audit", ...payload }),
   },
   work: {
     // Swap the static WORK array for a database or CMS call later.
@@ -71,6 +85,17 @@ const api = {
 /* =========================================================================
    CONTENT — edit freely. Confirm you're allowed to name each client.
    ========================================================================= */
+
+const STACK = [
+  { group: "Front end", tools: ["React", "React Native", "JavaScript", "HTML and CSS", "WordPress", "Three.js"] },
+  { group: "Back end and data", tools: ["Node", "Express", "Python", "Flask", "PostgreSQL", "MySQL", "SQLite", "SQL Server"] },
+  { group: "Testing and automation", tools: ["JMeter", "Taurus", "Selenium", "Mocha", "Robot Framework", "Zapier"] },
+  { group: "Cloud and analytics", tools: [
+  { name: "AWS Certified Cloud Practitioner", href: "https://www.credly.com/badges/83013da6-29a8-4fe9-a950-ddad54338b43" },
+  "GCP", "Docker", "Google Analytics", "Tag Manager", "DataDog"
+] },
+];
+
 const HEADLINES = {
   A: { text: "Websites built to be measured.", note: "Direct. Condensed. Heavy." },
   B: { text: "A slow website quietly costs you customers.", note: "Open. Wide. Light." },
@@ -376,6 +401,13 @@ const css = `
 .gr .fact + .fact{padding-left:18px;border-left:1px solid var(--line)}
 .gr .fact strong{display:block;font-family:'Bricolage Grotesque','Arial Narrow',system-ui,sans-serif;font-size:22px;font-weight:600}
 .gr .fact span{font-size:14px;color:var(--muted)}
+.gr .toolset{display:grid;grid-template-columns:1fr 1fr;margin-top:36px;border-top:1.5px solid var(--ink)}
+.gr .toolset > div{padding:18px 24px 18px 0;border-bottom:1px solid var(--line)}
+.gr .toolset > div:nth-child(even){padding-left:24px;border-left:1px solid var(--line)}
+.gr .toolset dt{font:600 20px 'Bricolage Grotesque','Arial Narrow',system-ui,sans-serif;margin-bottom:6px}
+.gr .toolset dd{margin:0;font-size:15px;color:var(--muted);line-height:1.55}
+.gr .cred{color:var(--signal);font-weight:600;text-underline-offset:3px}
+@media (max-width:640px){.gr .toolset{grid-template-columns:1fr}.gr .toolset > div:nth-child(even){padding-left:0;border-left:0}}
  
 /* contact */
 .gr form{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
@@ -839,20 +871,31 @@ function About() {
         </h2>
         <div className="about-body">
           <p>
-            I'm William Griffin, a full stack developer with six years of experience building software for
-            agencies, energy companies and supply chain platforms. I build the whole thing: React and React
-            Native interfaces, Node and Python APIs, PostgreSQL and MySQL databases, and the cloud setup they run on.
+            I’m William Griffin, an AWS-certified Cloud Practitioner and full stack developer with six years of experience building software for agencies, energy companies and supply chain platforms.
+            I build the whole thing, from the pages your customers use to the APIs, databases and cloud setup behind them.
           </p>
           <p>
             I also automate and test what I build. I've led load and performance testing across APIs, databases,
             web and mobile, written automated test suites, and built workflow automations that save teams hours.
             Your site ships working, fast and ready to grow.
           </p>
-          <div className="facts">
-            <div className="fact"><strong>Front and back end</strong><span>React, Node, Python, SQL</span></div>
-            <div className="fact"><strong>Automation and testing</strong><span>Load, performance, end to end</span></div>
-            <div className="fact"><strong>AWS certified</strong><span>Cloud, Docker, deployment</span></div>
-          </div>
+          <dl className="toolset">
+            {STACK.map((g) => (
+              <div key={g.group}>
+                <dt>{g.group}</dt>
+                <dd>
+  {g.tools.map((t, i) => (
+    <span key={typeof t === "string" ? t : t.name}>
+      {i > 0 && ", "}
+      {typeof t === "string" ? t : (
+        <a href={t.href} target="_blank" rel="noopener noreferrer" title={`Link to see my ${t.name} certificate via Credly.`} className="cred">{t.name}</a>
+      )}
+    </span>
+  ))}
+</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       </div>
     </section>
@@ -980,7 +1023,7 @@ export default function App() {
       </main>
       <footer>
         <div className="wrap">
-          <span>© {new Date().getFullYear()} {CONFIG.brand}. {CONFIG.location}.</span>
+          <span>© {new Date().getFullYear()} {CONFIG.brand}.</span>
           <span>
             {CONFIG.phone && <>{CONFIG.phone} &nbsp;|&nbsp; </>}
             <a href={`mailto:${CONFIG.contactEmail}`}>{CONFIG.contactEmail}</a>
